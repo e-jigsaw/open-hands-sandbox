@@ -1,0 +1,18 @@
+services:
+  openhands-app:
+    image: docker.all-hands.dev/all-hands-ai/openhands:0.26
+    container_name: openhands-app
+    environment:
+      SANDBOX_RUNTIME_CONTAINER_IMAGE: "docker.all-hands.dev/all-hands-ai/runtime:0.26-nikolaik"
+      LOG_ALL_EVENTS: "true"
+      LLM_OLLAMA_BASE_URL: "http://host.docker.internal:11434"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ~/.openhands-state:/.openhands-state
+    ports:
+      - "3000:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    stdin_open: true
+    tty: true
+    pull_policy: always
