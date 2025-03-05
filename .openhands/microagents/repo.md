@@ -27,4 +27,4 @@ Commands:
 Guidelines:
 - Refer to the [Astro documentation](https://docs.astro.build) for more information.
 
-When creating a Pull Request, please follow the instructions in prompts/summarize.md to create and commit the session summary, then create the PR.
+When creating a Pull Request, please follow the instructions in `prompts/summarize.md` to create and commit the session summary, then create the PR.
