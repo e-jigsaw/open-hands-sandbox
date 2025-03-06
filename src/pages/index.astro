@@ -5,7 +5,7 @@ import Layout from '../layouts/Layout.astro';
 const docs = await getCollection("docs");
 ---
 <Layout>
-  <h1>Kevin's Work Logs</h1>
+  <h1>Welcome!</h1>
   <ul>
     {docs.map(doc => (
       <li><a href={`/docs/${doc.slug}`}>{doc.data.title}</a></li>
