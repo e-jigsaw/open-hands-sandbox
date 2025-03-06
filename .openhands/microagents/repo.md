@@ -5,6 +5,7 @@ agent: CodeActAgent
 ---
 
 Repository: open-hands-sandbox
+
 Description: Kevin's work logs blog written in Astro.
 
 Directory Structure:
@@ -16,6 +17,7 @@ Directory Structure:
 Setup:
 - To set up the project, run `npm install` to install the dependencies.
 - `npm run dev` for development.
+
 Commands:
 - `npm install`: Installs dependencies.
 - `npm run dev`: Starts the local development server (default port may vary).
