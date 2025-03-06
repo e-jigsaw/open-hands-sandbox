@@ -1,14 +1,18 @@
 ---
 import { getCollection } from 'astro:content';
-import Layout from '../layouts/Layout.astro';
+import DocsLayout from '../layouts/DocsLayout.astro';
 
 const docs = await getCollection("docs");
 ---
-<Layout>
-  <h1>Kevin's Work Logs</h1>
-  <ul>
+<DocsLayout title="Kevin's Work Logs">
+  <h2>Recent Work Logs</h2>
+  <ul style="list-style: none; padding: 0;">
     {docs.map(doc => (
-      <li><a href={`/docs/${doc.slug}`}>{doc.data.title}</a></li>
+      <li style="margin-bottom: 1rem;">
+        <a href={`/docs/${doc.slug}`} style="color: #333; text-decoration: none; font-size: 1.1em; border-bottom: 1px solid #eee; display: block; padding: 0.5rem 0;">
+          {doc.data.title}
+        </a>
+      </li>
     ))}
   </ul>
-</Layout>
+</DocsLayout>
