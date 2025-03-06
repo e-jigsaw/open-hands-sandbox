@@ -1,4 +1,4 @@
-# Work Logs Site
+# Kevin's Work Logs Site
 
 A simple work logs site built with Astro, featuring markdown-based content management and a clean, responsive layout.
 
