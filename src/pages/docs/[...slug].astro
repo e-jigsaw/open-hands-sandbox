@@ -16,5 +16,13 @@ const { Content } = await entry.render();
 
 <DocsLayout title={`${entry.data.title} | Kevin's Work Logs`}>
         <h2>{entry.data.title}</h2>
+        <p class="pub-date">Published on: {entry.data.pubDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
         <Content />
+        <style>
+                .pub-date {
+                        color: #666;
+                        font-style: italic;
+                        margin-bottom: 2rem;
+                }
+        </style>
 </DocsLayout>
