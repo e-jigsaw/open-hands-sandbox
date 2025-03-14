@@ -83,7 +83,7 @@ jobs:
                       repo = g.get_repo(repo_full_name)
                       
                       # Try different possible doc directories
-                      doc_paths = ['docs']
+                      doc_paths = ['docs/sessions']
                       for path in doc_paths:
                           try:
                               contents = repo.get_contents(path)
