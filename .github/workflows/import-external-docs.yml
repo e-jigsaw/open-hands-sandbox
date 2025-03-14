@@ -51,8 +51,13 @@ jobs:
               return [repo.strip() for repo in os.getenv('DEFAULT_REPOS', '').split(',')]
           
           def process_markdown(content, source_repo):
-              post = frontmatter.loads(content)
-              metadata = post.metadata
+              try:
+                  post = frontmatter.loads(content)
+                  metadata = post.metadata
+              except:
+                  # If frontmatter parsing fails, create empty metadata
+                  metadata = {}
+                  post = frontmatter.Post(content)
               
               # Add required frontmatter
               metadata['sourceRepo'] = source_repo
@@ -66,6 +71,7 @@ jobs:
               if 'pubDate' not in metadata:
                   metadata['pubDate'] = metadata['importedAt'].split('T')[0]
               
+              post.metadata = metadata
               return frontmatter.dumps(post)
           
           def main():
@@ -75,28 +81,37 @@ jobs:
               for repo_full_name in repo_list:
                   try:
                       repo = g.get_repo(repo_full_name)
-                      contents = repo.get_contents('docs')
                       
-                      for file in contents:
-                          if not file.name.endswith('.md'):
-                              continue
-                              
-                          owner, repo_name = repo_full_name.split('/')
-                          new_filename = f"{owner}-{repo_name}-{file.name}"
-                          target_path = f"src/content/external-docs/{new_filename}"
-                          
-                          # Skip if file already exists
-                          if os.path.exists(target_path):
-                              continue
-                          
-                          content = file.decoded_content.decode('utf-8')
-                          processed_content = process_markdown(content, repo_full_name)
-                          
-                          os.makedirs('src/content/external-docs', exist_ok=True)
-                          with open(target_path, 'w') as f:
-                              f.write(processed_content)
-                          
-                          print(f"Imported {file.name} as {new_filename}")
+                      # Try different possible doc directories
+                      doc_paths = ['docs', 'doc', '_docs', '_doc', 'documentation']
+                      for path in doc_paths:
+                          try:
+                              contents = repo.get_contents(path)
+                              if isinstance(contents, list):
+                                  for file in contents:
+                                      if not file.name.endswith('.md'):
+                                          continue
+                                          
+                                      owner, repo_name = repo_full_name.split('/')
+                                      new_filename = f"{owner}-{repo_name}-{file.name}"
+                                      target_path = f"src/content/external-docs/{new_filename}"
+                                      
+                                      # Skip if file already exists
+                                      if os.path.exists(target_path):
+                                          continue
+                                      
+                                      content = file.decoded_content.decode('utf-8')
+                                      processed_content = process_markdown(content, repo_full_name)
+                                      
+                                      os.makedirs('src/content/external-docs', exist_ok=True)
+                                      with open(target_path, 'w') as f:
+                                          f.write(processed_content)
+                                      
+                                      print(f"Imported {file.name} as {new_filename}")
+                              break  # If we found and processed a directory, stop looking
+                          except Exception as e:
+                              print(f"Failed to process {path}: {str(e)}")
+                              continue  # Try next path if this one fails
                           
                   except Exception as e:
                       print(f"Error processing {repo_full_name}: {str(e)}")
@@ -113,6 +128,7 @@ jobs:
           python import_docs.py
 
       - name: Create Pull Request
+        if: success() && github.event_name != 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -126,20 +142,27 @@ jobs:
             git checkout -b $BRANCH_NAME
             git add src/content/external-docs/
             git commit -m "Import external documentation
-            
+
             Imported new session summaries from external repositories.
             Generated by GitHub Actions workflow."
             git push origin $BRANCH_NAME
             
-            # Create pull request
-            gh pr create \
-              --title "Import external documentation $(date +%Y-%m-%d)" \
-              --body "This PR contains newly imported session summaries from external repositories.
-              
-              Generated by the import-external-docs workflow." \
-              --base main \
-              --head $BRANCH_NAME \
-              --draft
+            # Create pull request using the GitHub API
+            PR_BODY="This PR contains newly imported session summaries from external repositories.
+
+            Generated by the import-external-docs workflow."
+            
+            curl -X POST \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/pulls" \
+              -d "{
+                \"title\": \"Import external documentation $(date +%Y-%m-%d)\",
+                \"body\": \"$PR_BODY\",
+                \"head\": \"$BRANCH_NAME\",
+                \"base\": \"main\",
+                \"draft\": true
+              }"
           else
             echo "No changes to commit"
           fi
