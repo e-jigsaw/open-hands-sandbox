@@ -1,0 +1,145 @@
+name: Import External Documentation
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Run every 6 hours
+  workflow_dispatch:
+    inputs:
+      repositories:
+        description: 'Comma-separated list of repositories to import from (e.g., owner/repo,owner2/repo2)'
+        required: false
+        type: string
+
+env:
+  DEFAULT_REPOS: e-jigsaw/nok.audio  # Add more repositories as needed
+
+jobs:
+  import-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install PyGithub PyYAML python-frontmatter
+
+      - name: Import external documentation
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cat > import_docs.py << 'EOL'
+          import os
+          import sys
+          from datetime import datetime
+          import frontmatter
+          from github import Github
+          
+          def get_repo_list():
+              manual_repos = os.getenv('MANUAL_REPOS', '')
+              if manual_repos:
+                  return [repo.strip() for repo in manual_repos.split(',')]
+              return [repo.strip() for repo in os.getenv('DEFAULT_REPOS', '').split(',')]
+          
+          def process_markdown(content, source_repo):
+              post = frontmatter.loads(content)
+              metadata = post.metadata
+              
+              # Add required frontmatter
+              metadata['sourceRepo'] = source_repo
+              metadata['importedAt'] = datetime.utcnow().isoformat() + 'Z'
+              
+              # Ensure required fields exist
+              if 'title' not in metadata:
+                  metadata['title'] = 'Imported Session'
+              if 'description' not in metadata:
+                  metadata['description'] = 'Imported from ' + source_repo
+              if 'pubDate' not in metadata:
+                  metadata['pubDate'] = metadata['importedAt'].split('T')[0]
+              
+              return frontmatter.dumps(post)
+          
+          def main():
+              g = Github(os.getenv('GITHUB_TOKEN'))
+              repo_list = get_repo_list()
+              
+              for repo_full_name in repo_list:
+                  try:
+                      repo = g.get_repo(repo_full_name)
+                      contents = repo.get_contents('docs')
+                      
+                      for file in contents:
+                          if not file.name.endswith('.md'):
+                              continue
+                              
+                          owner, repo_name = repo_full_name.split('/')
+                          new_filename = f"{owner}-{repo_name}-{file.name}"
+                          target_path = f"src/content/external-docs/{new_filename}"
+                          
+                          # Skip if file already exists
+                          if os.path.exists(target_path):
+                              continue
+                          
+                          content = file.decoded_content.decode('utf-8')
+                          processed_content = process_markdown(content, repo_full_name)
+                          
+                          os.makedirs('src/content/external-docs', exist_ok=True)
+                          with open(target_path, 'w') as f:
+                              f.write(processed_content)
+                          
+                          print(f"Imported {file.name} as {new_filename}")
+                          
+                  except Exception as e:
+                      print(f"Error processing {repo_full_name}: {str(e)}")
+          
+          if __name__ == '__main__':
+              main()
+          EOL
+          
+          # Set manual repositories if provided through workflow_dispatch
+          if [ -n "${{ github.event.inputs.repositories }}" ]; then
+            export MANUAL_REPOS="${{ github.event.inputs.repositories }}"
+          fi
+          
+          python import_docs.py
+
+      - name: Create Pull Request
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            # Configure git
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            
+            # Create branch and commit changes
+            BRANCH_NAME="import-external-docs-$(date +%Y%m%d-%H%M%S)"
+            git checkout -b $BRANCH_NAME
+            git add src/content/external-docs/
+            git commit -m "Import external documentation
+            
+            Imported new session summaries from external repositories.
+            Generated by GitHub Actions workflow."
+            git push origin $BRANCH_NAME
+            
+            # Create pull request
+            gh pr create \
+              --title "Import external documentation $(date +%Y-%m-%d)" \
+              --body "This PR contains newly imported session summaries from external repositories.
+              
+              Generated by the import-external-docs workflow." \
+              --base main \
+              --head $BRANCH_NAME \
+              --draft
+          else
+            echo "No changes to commit"
+          fi
