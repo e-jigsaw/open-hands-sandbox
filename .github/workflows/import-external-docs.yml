@@ -11,7 +11,7 @@ on:
         type: string
 
 env:
-  DEFAULT_REPOS: e-jigsaw/nok.audio  # Add more repositories as needed
+  DEFAULT_REPOS: e-jigsaw/nok.audio,e-jigsaw/code-quiz  # Add more repositories as needed
 
 jobs:
   import-docs:
